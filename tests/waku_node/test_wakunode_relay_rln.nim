@@ -12,11 +12,12 @@ import
 from std/times import epochTime
 
 import
-  ../../../waku/
-    [node/waku_node, node/peer_manager, waku_core, waku_node, waku_rln_relay],
+  ../../../waku/[
+    node/waku_node, node/peer_manager, waku_core, waku_node, waku_rln_relay
+  ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, wakunode, testasync, futures],
+  ../testlib/[wakucore, wakunode, testasync, futures, assertions],
   ../resources/payloads
 
 proc setupRln(node: WakuNode, identifier: uint) {.async.} =
@@ -54,10 +55,21 @@ proc sendRlnMessage(
     payload: seq[byte] = "Hello".toBytes(),
 ): Future[bool] {.async.} =
   var message = WakuMessage(payload: payload, contentTopic: contentTopic)
-  doAssert(client.wakuRlnRelay.appendRLNProof(message, epochTime()).isOk())
+  let appendRlnProofResult = client.wakuRlnRelay.appendRLNProof(message, epochTime())
+  assertResultOk appendRlnProofResult
   discard await client.publish(some(pubsubTopic), message)
   let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
   return isCompleted
+
+proc versionAwareGenerateProof(
+    groupManager: GroupManager, messageBytes: seq[byte], epoch: Epoch
+): GroupManagerResult[RateLimitProof] =
+  when defined(rln_v2):
+    return groupManager.generateProof(
+        data = messageBytes, epoch = epoch, messageId = MessageId(1)
+      )
+  else:
+    return groupManager.generateProof(data = messageBytes, epoch = epoch)
 
 proc sendRlnMessageWithInvalidProof(
     client: WakuNode,
@@ -68,11 +80,12 @@ proc sendRlnMessageWithInvalidProof(
 ): Future[bool] {.async.} =
   let
     extraBytes: seq[byte] = @[byte(1), 2, 3]
-    rateLimitProofRes = client.wakuRlnRelay.groupManager.generateProof(
-      concat(payload, extraBytes),
-        # we add extra bytes to invalidate proof verification against original payload
-      client.wakuRlnRelay.getCurrentEpoch(),
-    )
+    rateLimitProofRes =
+      client.wakuRlnRelay.groupManager.versionAwareGenerateProof(
+        concat(payload, extraBytes),
+          # we add extra bytes to invalidate proof verification against original payload
+        client.wakuRlnRelay.getCurrentEpoch()
+      )
     rateLimitProof = rateLimitProofRes.get().encode().buffer
     message =
       WakuMessage(payload: @payload, contentTopic: contentTopic, proof: rateLimitProof)
@@ -121,8 +134,10 @@ suite "Waku RlnRelay - End to End":
         server.wakuRlnRelay == nil
 
       # When RlnRelay is mounted
-      let catchRes = catch:
-        await server.setupRln(1)
+      let
+        catchRes =
+          catch:
+            await server.setupRln(1)
 
       # Then Relay and RLN are not mounted,and the process fails
       check:
@@ -131,6 +146,7 @@ suite "Waku RlnRelay - End to End":
         catchRes.error()[].msg ==
           "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay"
 
+    # FIXME: fails on macos
     asyncTest "Pubsub topics subscribed before mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
@@ -148,8 +164,9 @@ suite "Waku RlnRelay - End to End":
       var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
 
       # When the client sends a valid RLN message
-      let isCompleted1 =
-        await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+      let
+        isCompleted1 =
+          await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
 
       # Then the valid RLN message is relayed
       check:
@@ -158,14 +175,17 @@ suite "Waku RlnRelay - End to End":
 
       # When the client sends an invalid RLN message
       completionFuture = newBoolFuture()
-      let isCompleted2 = await sendRlnMessageWithInvalidProof(
-        client, pubsubTopic, contentTopic, completionFuture
-      )
+      let
+        isCompleted2 =
+          await sendRlnMessageWithInvalidProof(
+            client, pubsubTopic, contentTopic, completionFuture
+          )
 
       # Then the invalid RLN message is not relayed
       check:
         not isCompleted2
 
+    # FIXME: fails on macos
     asyncTest "Pubsub topics subscribed after mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln without subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[])
@@ -180,8 +200,9 @@ suite "Waku RlnRelay - End to End":
 
       await sleepAsync(FUTURE_TIMEOUT)
       # When the client sends a valid RLN message
-      let isCompleted1 =
-        await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+      let
+        isCompleted1 =
+          await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
 
       # Then the valid RLN message is relayed
       check:
@@ -190,15 +211,18 @@ suite "Waku RlnRelay - End to End":
 
       # When the client sends an invalid RLN message
       completionFuture = newBoolFuture()
-      let isCompleted2 = await sendRlnMessageWithInvalidProof(
-        client, pubsubTopic, contentTopic, completionFuture
-      )
+      let
+        isCompleted2 =
+          await sendRlnMessageWithInvalidProof(
+            client, pubsubTopic, contentTopic, completionFuture
+          )
 
       # Then the invalid RLN message is not relayed
       check:
         not isCompleted2
 
   suite "Analysis of Bandwith Limitations":
+    # FIXME: fails on macos
     asyncTest "Valid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
@@ -236,26 +260,24 @@ suite "Waku RlnRelay - End to End":
           WakuMessage(payload: @payload150kibPlus, contentTopic: contentTopic)
 
       doAssert(
-        client.wakuRlnRelay
-        .appendRLNProof(message1b, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 0)
-        .isOk()
+        client.wakuRlnRelay.appendRLNProof(
+          message1b, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 0)
+        ).isOk()
       )
       doAssert(
-        client.wakuRlnRelay
-        .appendRLNProof(message1kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 1)
-        .isOk()
+        client.wakuRlnRelay.appendRLNProof(
+          message1kib, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 1)
+        ).isOk()
       )
       doAssert(
-        client.wakuRlnRelay
-        .appendRLNProof(message150kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 2)
-        .isOk()
+        client.wakuRlnRelay.appendRLNProof(
+          message150kib, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 2)
+        ).isOk()
       )
       doAssert(
-        client.wakuRlnRelay
-        .appendRLNProof(
-          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
-        )
-        .isOk()
+        client.wakuRlnRelay.appendRLNProof(
+          message151kibPlus, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 3)
+        ).isOk()
       )
 
       # When sending the 1B message
@@ -287,6 +309,7 @@ suite "Waku RlnRelay - End to End":
       # Then the message is not relayed
       check not await completionFut.withTimeout(FUTURE_TIMEOUT_LONG)
 
+    # FIXME: fails on macos
     asyncTest "Invalid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
@@ -313,13 +336,14 @@ suite "Waku RlnRelay - End to End":
         overhead: uint64 = 419
         payload150kibPlus = getByteSequence((150 * 1024) - overhead + 1)
 
-      var message151kibPlus =
-        WakuMessage(payload: @payload150kibPlus, contentTopic: contentTopic)
+      var
+        message151kibPlus =
+          WakuMessage(payload: @payload150kibPlus, contentTopic: contentTopic)
 
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
-        )
+          message151kibPlus, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 3)
+        ).isOk()
       )
 
       # When sending the 150KiB plus message
