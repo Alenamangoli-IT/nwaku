@@ -138,7 +138,9 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
 
   return contractAddress
 
-proc createEthAccount*(): Future[(keys.PrivateKey, Address)] {.async.} =
+proc createEthAccount*(
+    ethAmount: UInt256 = 10.u256
+): Future[(keys.PrivateKey, Address)] {.async.} =
   let web3 = await newWeb3(EthClient)
   let accounts = await web3.provider.eth_accounts()
   let gasPrice = int(await web3.provider.eth_gasPrice())
@@ -149,14 +151,14 @@ proc createEthAccount*(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   var tx: EthSend
   tx.source = accounts[0]
-  tx.value = some(ethToWei(10.u256))
+  tx.value = some(ethToWei(ethAmount))
   tx.to = some(acc)
   tx.gasPrice = some(gasPrice)
 
   # Send 10 eth to acc
   discard await web3.send(tx)
   let balance = await web3.provider.eth_getBalance(acc, "latest")
-  assert(balance == ethToWei(10.u256))
+  assert(balance == ethToWei(ethAmount))
 
   return (pk, acc)
 
@@ -223,7 +225,7 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
   except:
     error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
 
-proc setup*(): Future[OnchainGroupManager] {.async.} =
+proc setup*(ethAmount: UInt256 = 10.u256): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes =
     createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
   require:
@@ -239,7 +241,7 @@ proc setup*(): Future[OnchainGroupManager] {.async.} =
   web3.defaultAccount = accounts[0]
 
   var pk = none(string)
-  let (privateKey, _) = await createEthAccount()
+  let (privateKey, _) = await createEthAccount(ethAmount)
   pk = some($privateKey)
 
   let manager = OnchainGroupManager(
