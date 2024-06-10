@@ -36,7 +36,7 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     maxConnections: 50,
     maxMessageSize: "1024 KiB",
     clusterId: 0,
-    pubsubTopics: @["/waku/2/rs/0/0"],
+    shards: @[uint16(0)],
     relay: true,
     storeMessageDbUrl: "sqlite://store.sqlite3",
   )
@@ -61,8 +61,9 @@ proc newTestWakuNode*(
     dns4DomainName = none(string),
     discv5UdpPort = none(Port),
     agentString = none(string),
-    pubsubTopics: seq[string] = @["/waku/2/rs/1/0"],
     peerStoreCapacity = none(int),
+    clusterId = DefaultClusterId,
+    shards = @[DefaultShardId],
 ): WakuNode =
   var resolvedExtIp = extIp
 
@@ -75,14 +76,8 @@ proc newTestWakuNode*(
 
   var conf = defaultTestWakuNodeConf()
 
-  let clusterId =
-    if pubsubTopics.len() > 0:
-      NsPubsubTopic.parse(pubsubTopics[0]).get().clusterId
-    else:
-      1.uint16
-
   conf.clusterId = clusterId
-  conf.pubsubTopics = pubsubTopics
+  conf.shards = shards
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
@@ -93,7 +88,7 @@ proc newTestWakuNode*(
 
   let netConf = NetConfig.init(
     bindIp = bindIp,
-    clusterId = clusterId,
+    clusterId = conf.clusterId,
     bindPort = bindPort,
     extIp = resolvedExtIp,
     extPort = extPort,
@@ -109,8 +104,10 @@ proc newTestWakuNode*(
 
   var enrBuilder = EnrBuilder.init(nodeKey)
 
-  enrBuilder.withShardedTopics(pubsubTopics).isOkOr:
-    raise newException(Defect, "Invalid record: " & error)
+  enrBuilder.withWakuRelaySharding(
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+  ).isOkOr:
+    raise newException(Defect, "Invalid record: " & $error)
 
   enrBuilder.withIpAddressAndPorts(
     ipAddr = netConf.enrIp, tcpPort = netConf.enrPort, udpPort = netConf.discv5UdpPort

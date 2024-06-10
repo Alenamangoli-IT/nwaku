@@ -110,6 +110,12 @@ proc initNode(
 
 ## Mount protocols
 
+proc getNetworkShards*(conf: WakuNodeConf): uint32 =
+  if conf.networkShards != 0:
+    return conf.networkShards
+  # If conf.networkShards is not set, use the number of shards configured as networkShards
+  return uint32(conf.shards.len)
+
 proc setupProtocols(
     node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
 ): Future[Result[void, string]] {.async.} =
@@ -120,7 +126,10 @@ proc setupProtocols(
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
-  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+  # If conf.networkShards is not set, use the number of shards configured as networkShards
+  let networkShards = getNetworkShards(conf)
+
+  node.mountSharding(conf.clusterId, networkShards).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
@@ -144,9 +153,15 @@ proc setupProtocols(
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let shards =
-      conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
-    let pubsubTopics = conf.pubsubTopics & shards
+    var autoShards: seq[NsPubsubTopic] = @[]
+    for contentTopic in conf.contentTopics:
+      let shard = node.wakuSharding.getShard(contentTopic).valueOr:
+        return err("Could not parse content topic: " & error)
+      autoShards.add(shard)
+
+    let confShards =
+      conf.shards.mapIt(NsPubsubTopic(clusterId: conf.clusterId, shardId: uint16(it)))
+    let shards = confShards & autoShards
 
     let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
       return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
@@ -155,25 +170,22 @@ proc setupProtocols(
 
     try:
       await mountRelay(
-        node,
-        pubsubTopics,
-        peerExchangeHandler = peerExchangeHandler,
-        int(parsedMaxMsgSize),
+        node, shards, peerExchangeHandler = peerExchangeHandler, int(parsedMaxMsgSize)
       )
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
     # Add validation keys to protected topics
-    var subscribedProtectedTopics: seq[ProtectedTopic]
-    for topicKey in conf.protectedTopics:
-      if topicKey.topic notin pubsubTopics:
-        warn "protected topic not in subscribed pubsub topics, skipping adding validator",
-          protectedTopic = topicKey.topic, subscribedTopics = pubsubTopics
+    var subscribedProtectedShards: seq[ProtectedShard]
+    for shardKey in conf.protectedShards:
+      if shardKey.shard notin conf.shards:
+        warn "protected shard not in subscribed shards, skipping adding validator",
+          protectedShard = shardKey.shard, subscribedShards = shards
         continue
-      subscribedProtectedTopics.add(topicKey)
+      subscribedProtectedShards.add(shardKey)
       notice "routing only signed traffic",
-        protectedTopic = topicKey.topic, publicKey = topicKey.key
-    node.wakuRelay.addSignedTopicsValidator(subscribedProtectedTopics)
+        protectedShard = shardKey.shard, publicKey = shardKey.key
+    node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
     # Enable Rendezvous Discovery protocol when Relay is enabled
     try:

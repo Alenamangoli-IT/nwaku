@@ -24,6 +24,7 @@ suite "Waku RlnRelay - End to End":
   var
     pubsubTopic {.threadvar.}: PubsubTopic
     contentTopic {.threadvar.}: ContentTopic
+    nsTopic {.threadvar.}: NsPubsubTopic
 
   var
     server {.threadvar.}: WakuNode
@@ -36,7 +37,8 @@ suite "Waku RlnRelay - End to End":
   asyncSetup:
     pubsubTopic = DefaultPubsubTopic
     contentTopic = DefaultContentTopic
-
+    nsTopic = DefaultNsPubsubTopic
+    
     let
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
@@ -72,8 +74,8 @@ suite "Waku RlnRelay - End to End":
 
     asyncTest "Pubsub topics subscribed before mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
-      await server.setupRelayWithRln(1.uint, @[pubsubTopic])
-      await client.setupRelayWithRln(2.uint, @[pubsubTopic])
+      await server.setupRelayWithRln(1.uint, @[nsTopic])
+      await client.setupRelayWithRln(2.uint, @[nsTopic])
       check:
         server.wakuRelay != nil
         server.wakuRlnRelay != nil
@@ -140,8 +142,12 @@ suite "Waku RlnRelay - End to End":
   suite "Analysis of Bandwith Limitations":
     asyncTest "Valid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
-      await server.setupRelayWithRln(1.uint, @[pubsubTopic])
-      await client.setupRelayWithRln(2.uint, @[pubsubTopic])
+      await server.setupRelayWithRln(
+        1.uint, @[nsTopic])
+      )
+      await client.setupRelayWithRln(
+        2.uint, @[nsTopic])
+      )
 
       # And the nodes are connected
       await client.connectToNodes(@[serverRemotePeerInfo])
@@ -234,8 +240,8 @@ suite "Waku RlnRelay - End to End":
 
     asyncTest "Invalid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
-      await server.setupRelayWithRln(1.uint, @[pubsubTopic])
-      await client.setupRelayWithRln(2.uint, @[pubsubTopic])
+      await server.setupRelayWithRln(1.uint, @[nsTopic])
+      await client.setupRelayWithRln(2.uint, @[nsTopic])
 
       # And the nodes are connected
       await client.connectToNodes(@[serverRemotePeerInfo])
