@@ -18,6 +18,7 @@ type ProtocolTesterMessage* = object
   startedAt*: int64
   sinceStart*: int64
   sincePrev*: int64
+  size*: uint64
 
 proc writeValue*(
     writer: var JsonWriter[RestJson], value: ProtocolTesterMessage
@@ -29,6 +30,7 @@ proc writeValue*(
   writer.writeField("startedAt", value.startedAt)
   writer.writeField("sinceStart", value.sinceStart)
   writer.writeField("sincePrev", value.sincePrev)
+  writer.writeField("size", value.size)
   writer.endRecord()
 
 proc readValue*(
@@ -41,6 +43,7 @@ proc readValue*(
     startedAt: Option[int64]
     sinceStart: Option[int64]
     sincePrev: Option[int64]
+    size: Option[uint64]
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -80,6 +83,12 @@ proc readValue*(
           "Multiple `sincePrev` fields found", "ProtocolTesterMessage"
         )
       sincePrev = some(reader.readValue(int64))
+    of "size":
+      if size.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `size` fields found", "ProtocolTesterMessage"
+        )
+      size = some(reader.readValue(uint64))
     else:
       unrecognizedFieldWarning()
 
@@ -101,6 +110,9 @@ proc readValue*(
   if sincePrev.isNone():
     reader.raiseUnexpectedValue("Field `sincePrev` is missing")
 
+  if size.isNone():
+    reader.raiseUnexpectedValue("Field `size` is missing")
+
   value = ProtocolTesterMessage(
     sender: sender.get(),
     index: index.get(),
@@ -108,4 +120,5 @@ proc readValue*(
     startedAt: startedAt.get(),
     sinceStart: sinceStart.get(),
     sincePrev: sincePrev.get(),
+    size: size.get(),
   )
