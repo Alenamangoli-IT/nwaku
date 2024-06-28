@@ -58,6 +58,7 @@ type WakuNodeConf* = object
     name: "log-format"
   .}: logging.LogFormat
 
+  ## RLN Relay configuration
   rlnRelayCredPath* {.
     desc: "The path for peristing rln-relay credential",
     defaultValue: "",
@@ -101,13 +102,6 @@ type WakuNodeConf* = object
     defaultValue: 1,
     name: "rln-relay-epoch-sec"
   .}: uint64
-
-  maxMessageSize* {.
-    desc:
-      "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
-    defaultValue: DefaultMaxWakuMessageSizeStr,
-    name: "max-msg-size"
-  .}: string
 
   case cmd* {.command, defaultValue: noCommand.}: StartUpCommand
   of inspectRlnDb:
@@ -205,6 +199,13 @@ type WakuNodeConf* = object
     peerPersistence* {.
       desc: "Enable peer persistence.", defaultValue: false, name: "peer-persistence"
     .}: bool
+
+    maxMessageSize* {.
+      desc:
+        "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
+      defaultValue: DefaultMaxWakuMessageSizeStr,
+      name: "max-msg-size"
+    .}: string
 
     ## DNS addrs config
     dnsAddrs* {.
