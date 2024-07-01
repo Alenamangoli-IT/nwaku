@@ -215,12 +215,6 @@ type WakuNodeConf* = object
       name: "staticnode"
     .}: seq[string]
 
-    keepAlive* {.
-      desc: "Enable keep-alive for idle connections: true|false",
-      defaultValue: false,
-      name: "keep-alive"
-    .}: bool
-
     ## DNS addrs resolution config
     dnsAddrs* {.
       desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs",

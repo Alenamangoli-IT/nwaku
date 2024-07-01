@@ -136,11 +136,7 @@ proc setupProtocols(
     debug "Setting max message size", num_bytes = parsedMaxMsgSize
 
     try:
-      await mountRelay(
-        node,
-        pubsubTopics,
-        int(parsedMaxMsgSize),
-      )
+      await mountRelay(node, pubsubTopics, int(parsedMaxMsgSize))
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
@@ -340,9 +336,7 @@ proc startNode*(
       error "error while fetching peers from peer exchange", error = error
       quit(QuitFailure)
 
-  # Start keepalive, if enabled
-  if conf.keepAlive:
-    node.startKeepalive()
+  node.startKeepalive()
 
   # Maintain relay connections
   if conf.relay:
