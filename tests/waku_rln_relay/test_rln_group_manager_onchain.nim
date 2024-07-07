@@ -230,6 +230,7 @@ suite "Onchain group manager":
       manager.wakuRlnContract.isSome()
       manager.initialized
       manager.rlnContractDeployedBlockNumber > 0
+      manager.rlnRelayMaxMessageLimit == 100
 
     await manager.stop()
 

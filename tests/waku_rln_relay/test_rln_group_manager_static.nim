@@ -11,7 +11,8 @@ import
     waku_rln_relay/rln,
     waku_rln_relay/conversion_utils,
     waku_rln_relay/group_manager/static/group_manager,
-  ]
+  ],
+  ../testlib/[wakucore, wakunode]
 
 import stew/shims/net, chronos, libp2p/crypto/crypto, eth/keys, dnsdisc/builder
 
@@ -226,3 +227,25 @@ suite "Static group manager":
     await fut
     check:
       callbackCalled
+
+  asyncTest "test rln-relay-message-limit":
+    let
+      nodeKey = generateSecp256k1Key()
+      node = newTestWakuNode(nodeKey, parseIpAddress("0.0.0.0"), Port(0))
+
+    await node.mountRelay(@[DefaultPubsubTopic])
+
+    # mount rlnrelay in off-chain mode
+    let wakuRlnConfig = WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(0.uint),
+      rlnRelayUserMessageLimit: 111,
+      rlnEpochSizeSec: 0,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
+    )
+
+    try:
+      await node.mountRlnRelay(wakuRlnConfig)
+    except CatchableError as e:
+      check e.msg ==
+        "failed to mount WakuRlnRelay: rln-relay-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by contract"
