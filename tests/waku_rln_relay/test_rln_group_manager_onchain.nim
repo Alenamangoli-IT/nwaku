@@ -15,6 +15,9 @@ import
   eth/keys
 import
   waku/[
+    waku_node,
+    waku_rln_relay,
+    node/waku_node,
     waku_rln_relay/protocol_types,
     waku_rln_relay/constants,
     waku_rln_relay/contract,
@@ -22,7 +25,7 @@ import
     waku_rln_relay/conversion_utils,
     waku_rln_relay/group_manager/on_chain/group_manager,
   ],
-  ../testlib/common,
+  ../testlib/[wakucore, wakunode, common],
   ./utils
 
 const CHAIN_ID = 1337
@@ -779,3 +782,24 @@ suite "Onchain group manager":
 
   # We stop Anvil daemon
   stopAnvil(runAnvil)
+
+  asyncTest "test rln-relay-message-limit":
+    let
+      nodeKey = generateSecp256k1Key()
+      node = newTestWakuNode(nodeKey, parseIpAddress("0.0.0.0"), Port(0))
+
+    await node.mountRelay(@[DefaultPubsubTopic])
+
+    let wakuRlnConfig = WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(0.uint),
+      rlnRelayUserMessageLimit: 111,
+      rlnEpochSizeSec: 0,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
+    )
+
+    try:
+      await node.mountRlnRelay(wakuRlnConfig)
+    except CatchableError as e:
+      check e.msg ==
+        "failed to mount WakuRlnRelay: rln-relay-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by contract"
