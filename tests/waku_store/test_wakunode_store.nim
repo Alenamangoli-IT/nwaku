@@ -219,6 +219,9 @@ procSuite "WakuNode - Store":
     waitFor allFutures(client.stop(), server.stop())
 
   test "Store protocol returns expected message when relay is disabled and filter enabled":
+    debug "ivan"
+    ## ivan: it seems this tests makes macos ci to fail
+
     ## See nwaku issue #937: 'Store: ability to decouple store from relay'
     ## Setup
     let
@@ -229,52 +232,74 @@ procSuite "WakuNode - Store":
       server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+    debug "ivan"
 
     waitFor allFutures(client.start(), server.start(), filterSource.start())
+    debug "ivan"
 
     waitFor filterSource.mountFilter()
+    debug "ivan"
     let driver = newSqliteArchiveDriver()
+    debug "ivan"
 
     let mountArchiveRes = server.mountArchive(driver)
+    debug "ivan"
     assert mountArchiveRes.isOk(), mountArchiveRes.error
+    debug "ivan"
 
     waitFor server.mountStore()
+    debug "ivan"
     waitFor server.mountFilterClient()
+    debug "ivan"
     client.mountStoreClient()
+    debug "ivan"
 
     ## Given
     let message = fakeWakuMessage()
+    debug "ivan"
     let hash = computeMessageHash(DefaultPubSubTopic, message)
     let
       serverPeer = server.peerInfo.toRemotePeerInfo()
       filterSourcePeer = filterSource.peerInfo.toRemotePeerInfo()
+    debug "ivan"
 
     ## Then
     let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
+    debug "ivan"
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
       await server.wakuArchive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
+    debug "ivan"
+
     server.wakuFilterClient.registerPushHandler(filterHandler)
+    debug "ivan"
     let resp = waitFor server.filterSubscribe(
       some(DefaultPubsubTopic), DefaultContentTopic, peer = filterSourcePeer
     )
+    debug "ivan"
 
     waitFor sleepAsync(100.millis)
+    debug "ivan"
 
     waitFor filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+    debug "ivan"
 
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)
+    debug "ivan"
 
     let req =
       StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
+    debug "ivan"
     let res = waitFor client.query(req, serverPeer)
+    debug "ivan"
 
     ## Then
     check res.isOk()
+    debug "ivan"
 
     let response = res.get()
     check:
@@ -285,14 +310,17 @@ procSuite "WakuNode - Store":
           message: some(message),
           pubsubTopic: some(DefaultPubSubTopic),
         )
+    debug "ivan"
 
     let (handledPubsubTopic, handledMsg) = filterFut.read()
     check:
       handledPubsubTopic == DefaultPubsubTopic
       handledMsg == message
 
+    debug "ivan"
     ## Cleanup
     waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+    debug "ivan"
 
   test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
     ## Setup
