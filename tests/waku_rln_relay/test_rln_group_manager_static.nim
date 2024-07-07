@@ -7,6 +7,9 @@ import
   stew/results,
   options,
   waku/[
+    waku_node,
+    waku_rln_relay,
+    node/waku_node,
     waku_rln_relay/protocol_types,
     waku_rln_relay/rln,
     waku_rln_relay/conversion_utils,
