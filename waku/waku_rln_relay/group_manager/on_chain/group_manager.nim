@@ -620,7 +620,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     return err(
       "rln-relay-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by contract"
     )
-  else
+  else:
     g.rlnRelayMaxMessageLimit = max_message_limit 
 
   proc onDisconnect() {.async.} =
