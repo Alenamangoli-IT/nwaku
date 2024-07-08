@@ -776,13 +776,6 @@ suite "Onchain group manager":
 
     await manager.stop()
 
-  ################################
-  ## Terminating/removing Anvil
-  ################################
-
-  # We stop Anvil daemon
-  stopAnvil(runAnvil)
-
   asyncTest "test rln-relay-message-limit":
     let
       nodeKey = generateSecp256k1Key()
@@ -803,3 +796,10 @@ suite "Onchain group manager":
     except CatchableError as e:
       check e.msg ==
         "failed to mount WakuRlnRelay: rln-relay-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by contract"
+
+  ################################
+  ## Terminating/removing Anvil
+  ################################
+
+  # We stop Anvil daemon
+  stopAnvil(runAnvil)
