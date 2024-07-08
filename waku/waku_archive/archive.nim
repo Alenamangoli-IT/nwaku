@@ -282,11 +282,10 @@ proc findMessagesV2*(
   return ok(ArchiveResponse(messages: messages, cursor: cursor))
 
 proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
-  debug "executing message retention policy"
-
   let policy = self.retentionPolicy.get()
 
   while true:
+    debug "executing message retention policy"
     (await policy.execute(self.driver)).isOkOr:
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
       error "failed execution of retention policy", error = error
