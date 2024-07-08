@@ -436,6 +436,7 @@ proc mount(
       keystorePassword: rlnRelayCredPassword,
       membershipIndex: conf.rlnRelayCredIndex,
       onFatalErrorAction: conf.onFatalErrorAction,
+      rlnRelayMaxMessageLimit: conf.rlnRelayUserMessageLimit
     )
 
   # Initialize the groupManager
@@ -444,11 +445,6 @@ proc mount(
   # Start the group sync
   (await groupManager.startGroupSync()).isOkOr:
     return err("could not start the group sync: " & $error)
-
-  if (conf.rlnRelayUserMessageLimit > groupManager.rlnRelayMaxMessageLimit):
-    return err(
-      "rln-relay-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by contract"
-    )
 
   return ok(
     WakuRLNRelay(

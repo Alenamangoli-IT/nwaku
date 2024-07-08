@@ -33,7 +33,6 @@ type GroupManager* = ref object of RootObj
   validRoots*: Deque[MerkleNode]
   onFatalErrorAction*: OnFatalErrorHandler
   userMessageLimit*: Option[UserMessageLimit]
-  rlnRelayMaxMessageLimit*: uint64
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here

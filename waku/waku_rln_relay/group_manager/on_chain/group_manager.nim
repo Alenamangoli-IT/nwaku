@@ -66,6 +66,7 @@ type
     validRootBuffer*: Deque[MerkleNode]
     # interval loop to shut down gracefully
     blockFetchingActive*: bool
+    rlnRelayMaxMessageLimit*: uint64
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -614,8 +615,12 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   debug "using rln contract", deployedBlockNumber, rlnContractAddress = contractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
-  g.rlnRelayMaxMessageLimit =
-    cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
+  let max_message_limit = cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
+  if (g.rlnRelayMaxMessageLimit > max_message_limit):
+    return err(
+      "rln-relay-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by contract"
+    )
+  
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
