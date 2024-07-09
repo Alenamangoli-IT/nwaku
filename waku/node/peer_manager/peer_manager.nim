@@ -206,6 +206,7 @@ proc connectRelay*(
       waku_node_conns_initiated.inc(labelValues = [source])
 
       pm.peerStore[NumberFailedConnBook][peerId] = 0
+      pm.peerStore[LastSuccessfulConnBook][peerId] = Moment.init(getTime().toUnix, Second)
 
       return true
 

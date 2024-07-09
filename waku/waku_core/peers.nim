@@ -54,6 +54,7 @@ type RemotePeerInfo* = ref object
   origin*: PeerOrigin
   direction*: PeerDirection
   lastFailedConn*: Moment
+  lastSuccessfulConn*: Moment
   numberFailedConn*: int
 
 func `$`*(remotePeerInfo: RemotePeerInfo): string =

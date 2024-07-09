@@ -116,6 +116,7 @@ proc respond(
 proc getEnrsFromCache(
     wpx: WakuPeerExchange, numPeers: uint64
 ): seq[enr.Record] {.gcsafe.} =
+  wpx.updatePxEnrCache()
   if wpx.enrCache.len() == 0:
     debug "peer exchange ENR cache is empty"
     return @[]
