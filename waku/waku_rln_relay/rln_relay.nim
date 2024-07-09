@@ -436,6 +436,7 @@ proc mount(
       keystorePassword: rlnRelayCredPassword,
       membershipIndex: conf.rlnRelayCredIndex,
       onFatalErrorAction: conf.onFatalErrorAction,
+      rlnRelayMaxMessageLimit: conf.rlnRelayUserMessageLimit
     )
 
   # Initialize the groupManager
