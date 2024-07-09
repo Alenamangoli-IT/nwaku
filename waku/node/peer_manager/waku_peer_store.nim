@@ -145,10 +145,10 @@ proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInf
   return peerStore.peers.filterIt(it.protocols.contains(proto))
 
 proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
-  let threshold = Moment.fromNow(millis(2*60*60*1000))
+  let threshold = Moment.fromNow(millis(-3*60*60*1000))
   return peerStore.peers.filterIt(
     (it.connectedness == CanConnect or it.connectedness == Connected) and
-    (it.lastSuccessfulConn < threshold)
+    (it.lastSuccessfulConn > threshold)
   )
 
 proc getPeersByShard*(
