@@ -1,8 +1,9 @@
 {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options, strutils],
+  std/[tables, sequtils, sets, options, strutils, times, random, math],
   chronos,
+  chronos/timer,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
   libp2p/peerstore
@@ -22,6 +23,9 @@ type
 
   # Last failed connection attemp timestamp
   LastFailedConnBook* = ref object of PeerBook[Moment]
+
+  # Last Successful connection attemp timestamp
+  LastSuccessfulConnBook* = ref object of PeerBook[Moment]
 
   # Failed connection attempts
   NumberFailedConnBook* = ref object of PeerBook[int]
@@ -68,6 +72,7 @@ proc get*(peerStore: PeerStore, peerId: PeerID): RemotePeerInfo =
     origin: peerStore[SourceBook][peerId],
     direction: peerStore[DirectionBook][peerId],
     lastFailedConn: peerStore[LastFailedConnBook][peerId],
+    lastSuccessfulConn: peerStore[LastSuccessfulConnBook][peerId],
     numberFailedConn: peerStore[NumberFailedConnBook][peerId],
   )
 
@@ -140,8 +145,10 @@ proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInf
   return peerStore.peers.filterIt(it.protocols.contains(proto))
 
 proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
+  let threshold = Moment.fromNow(millis(-3*60*60*1000))
   return peerStore.peers.filterIt(
-    it.connectedness == CanConnect or it.connectedness == Connected
+    (it.connectedness == CanConnect or it.connectedness == Connected) and
+    (it.lastSuccessfulConn > threshold)
   )
 
 proc getPeersByShard*(
