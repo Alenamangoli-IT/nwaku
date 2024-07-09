@@ -3,6 +3,7 @@
 import
   std/[tables, sequtils, sets, options, strutils, times, random, math],
   chronos,
+  chronos/timer,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
   libp2p/peerstore
@@ -144,7 +145,7 @@ proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInf
   return peerStore.peers.filterIt(it.protocols.contains(proto))
 
 proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
-  let threshold = Moment.fromNow(initDuration(hours = 3))
+  let threshold = Moment.fromNow(millis(2*60*60*1000))
   return peerStore.peers.filterIt(
     (it.connectedness == CanConnect or it.connectedness == Connected) and
     (it.lastSuccessfulConn < threshold)
